@@ -94,6 +94,13 @@ select.stato:not(.s-deciso):not(.s-fatto){background:#FFE3D1;border-color:transp
 .opt .p{font-weight:600;white-space:nowrap}
 .opt .n{font-size:.85rem;color:var(--muted);min-width:0;overflow-wrap:anywhere}
 .opt .n a{margin-left:6px}
+.nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ricons{display:inline-flex;gap:4px;align-items:center}
+.rb{position:relative;width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:.72rem;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.rb:hover,.rb:focus-visible{border-color:var(--accent);color:var(--fg)}
+.rb.danger:hover{border-color:var(--bad);color:var(--bad)}
+.rb::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:var(--fg);color:var(--bg);font-size:.72rem;padding:3px 8px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:6}
+.rb:hover::after,.rb:focus-visible::after{opacity:1}
 .opt .n{display:flex;align-items:center;gap:6px}
 .onote{flex:1;min-width:0;border:1px solid transparent;border-bottom-color:var(--line);background:transparent;border-radius:6px;padding:3px 6px;font-size:.85rem;color:var(--fg)}
 .onote:hover{border-color:var(--line)}
@@ -230,14 +237,20 @@ function safeLink(l){
 const sortOpts = v => (v.opzioni || []).slice().sort((a, b) => a.prezzo - b.prezzo);
 function baseFor(v, mode){
   const secs = (v.calc && v.calc.sezioni) || [v.sez];
-  return S.voci.filter(x => x.attiva && !x.calc && secs.includes(x.sez)).reduce((t, x) => t + val(x, mode), 0);
+  return S.voci.filter(x => x.attiva && (!x.calc || x.calc.tipo === "maggiorata") && secs.includes(x.sez)).reduce((t, x) => t + val(x, mode), 0);
 }
+const isAuto = v => v.calc && v.calc.tipo !== "maggiorata";
 function val(v, mode = "sel"){
   if (v.calc){
-    if (v.calc.tipo === "sostitutiva") return (S.mutuo.importo || 0) * (v.calc.pct || 0) / 100;
-    if (v.calc.tipo === "percentuale") return baseFor(v, mode) * (v.calc.pct || 0) / 100;
+    const t = v.calc.tipo, pct = v.calc.pct || 0;
+    if (t === "sostitutiva" || t === "mutuo") return (S.mutuo.importo || 0) * pct / 100;
+    if (t === "percentuale") return baseFor(v, mode) * pct / 100;
+    if (t === "maggiorata") return rawPrice(v, mode) * (1 + pct / 100);
     return 0;
   }
+  return rawPrice(v, mode);
+}
+function rawPrice(v, mode){
   const o = sortOpts(v); if (!o.length) return 0;
   if (mode === "min") return o[0].prezzo;
   if (mode === "max") return o[o.length - 1].prezzo;
@@ -451,10 +464,11 @@ function renderItem(v){
     ? `<form data-form="rename" data-id="${v.id}" style="display:flex;gap:6px;flex-wrap:wrap"><input id="rename-${v.id}" name="nome" value="${esc(v.nome)}" data-autofocus class="f-wide" style="border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--surface)"><button class="btn small primary">Salva</button><button type="button" class="btn small ghost" data-act="cancel-form">Annulla</button></form>`
     : `<div class="iname">${esc(v.nome)}</div>`;
   let body = "";
-  if (v.calc){
-    const lbl = v.calc.tipo === "sostitutiva"
-      ? `${v.calc.pct}% dell'importo del mutuo (${fmt(S.mutuo.importo)})`
-      : `<input id="pct-${v.id}" inputmode="decimal" value="${v.calc.pct}" data-ch="pct" data-id="${v.id}" aria-label="Percentuale"> % delle voci attive della sezione (${fmt(baseFor(v,"sel"))})`;
+  const pctIn = `<input id="pct-${v.id}" inputmode="decimal" value="${v.calc ? v.calc.pct : ""}" data-ch="pct" data-id="${v.id}" aria-label="Percentuale" class="num"> %`;
+  if (isAuto(v)){
+    const lbl = v.calc.tipo === "percentuale"
+      ? `${pctIn} delle voci attive della sezione (${fmt(baseFor(v,"sel"))})`
+      : `${pctIn} dell'importo del mutuo (${fmt(S.mutuo.importo)})`;
     body = `<div class="calc">Calcolato in automatico: ${lbl}</div>`;
   } else {
     body = `<div class="opts" role="radiogroup" aria-label="Prezzi per ${esc(v.nome)}">` + opts.map(o => {
@@ -470,18 +484,19 @@ function renderItem(v){
       </label>`;
     }).join("") + `</div>`;
     if (f && f.kind === "opt" && f.id === v.id && !f.opt) body += optForm(v, null);
+    if (v.calc) body += `<div class="calc">Più ${pctIn} (es. IVA) sul prezzo scelto: ${fmt(rawPrice(v,"sel"))} → <b class="num">${fmt(val(v))}</b></div>`;
   }
-  const tools = `<div class="addrow">
-    ${v.calc ? "" : `<button class="btn ghost small" data-act="add-opt" data-id="${v.id}">+ Aggiungi un prezzo</button>`}
-    <button class="btn ghost small" data-act="rename" data-id="${v.id}">Rinomina</button>
-    ${askOr("voce", v.id, null, `<button class="btn ghost small danger" data-act="del-voce" data-id="${v.id}">Elimina voce</button>`)}
-  </div>`;
+  const ct = v.calc ? v.calc.tipo : "";
+  const calcSel = `<select class="stato" id="ctipo-${v.id}" data-ch="ctipo" data-id="${v.id}" aria-label="Come si calcola"><option value="" ${ct === "" ? "selected" : ""}>Prezzo inserito</option><option value="maggiorata" ${ct === "maggiorata" ? "selected" : ""}>Prezzo + %</option><option value="mutuo" ${ct === "mutuo" || ct === "sostitutiva" ? "selected" : ""}>% del mutuo</option><option value="percentuale" ${ct === "percentuale" ? "selected" : ""}>% della sezione</option></select>`;
+  const tools = "";
+  const ib = (act, sym, tip, cls = "") => `<button class="rb ${cls}" data-act="${act}" data-id="${v.id}" data-tip="${tip}" aria-label="${tip}">${sym}</button>`;
+  const icons = renaming ? "" : `<span class="ricons">${isAuto(v) ? "" : ib("add-opt", "+", "Aggiungi un prezzo")}${ib("rename", "✎", "Rinomina")}${askOr("voce", v.id, null, ib("del-voce", "🗑", "Elimina voce", "danger"))}</span>`;
   const statoSel = `<select class="stato s-${v.stato}" id="stato-${v.id}" data-ch="stato" data-id="${v.id}" aria-label="Stato">${STATI.map(([k, l]) => `<option value="${k}" ${v.stato === k ? "selected" : ""}>${l}</option>`).join("")}</select>`;
-  const rng = !v.calc && opts.length > 1 ? `<small class="num">da ${fmt(opts[0].prezzo)} a ${fmt(opts[opts.length-1].prezzo)}</small>` : `<small>${v.attiva ? "" : "non conteggiata"}</small>`;
+  const rng = !isAuto(v) && opts.length > 1 ? `<small class="num">da ${fmt(val(v,"min"))} a ${fmt(val(v,"max"))}</small>` : `<small>${v.attiva ? "" : "non conteggiata"}</small>`;
   return `<div class="item ${v.attiva ? "" : "off"}">
     <div class="ihead">
       <input type="checkbox" id="att-${v.id}" ${v.attiva ? "checked" : ""} data-ch="attiva" data-id="${v.id}" aria-label="Conta questa voce nel totale">
-      <div style="min-width:0">${name}<div class="imeta">${statoSel}</div></div>
+      <div style="min-width:0"><div class="nrow">${name}${icons}</div><div class="imeta">${statoSel}${calcSel}</div></div>
       <div class="chosen num">${fmt(val(v))}${rng}</div>
     </div>${body}${tools}</div>`;
 }
@@ -627,6 +642,7 @@ document.addEventListener("change", e => {
     case "scelta": v.scelta = t.dataset.opt; break;
     case "onota": { const o = v.opzioni.find(x => x.id === t.dataset.opt); if (o) o.nota = t.value.trim(); break; }
     case "stato": v.stato = t.value; break;
+    case "ctipo": { if (!t.value) delete v.calc; else if (!v.calc || (v.calc.tipo !== t.value && !(t.value === "mutuo" && v.calc.tipo === "sostitutiva"))) v.calc = {tipo:t.value, pct:({maggiorata:22, mutuo:1, percentuale:10})[t.value]}; break; }
     case "pct": { const n = parseNum(t.value); if (!isNaN(n)) v.calc.pct = n; break; }
     case "casa-prezzo": { const n = parseNum(t.value); S.casa.prezzo = isNaN(n) ? 0 : n; break; }
     case "mutuo": { const n = parseNum(t.value); S.mutuo[t.dataset.f] = isNaN(n) ? 0 : n; break; }
