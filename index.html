@@ -168,6 +168,21 @@ aside.side{display:none}
   .opts{gap:2px}
   .tiles{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 }
+.scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.scen .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.scen .card:nth-child(1){background:var(--accent-soft);border-color:transparent}
+.scen .card:nth-child(2){background:var(--good-soft);border-color:transparent}
+.scen .card:nth-child(3){background:#FFE3D1;border-color:transparent}
+.scen .lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.scen .big{font-family:var(--f-display);font-size:1.7rem;font-weight:700}
+.scen .row{display:flex;justify-content:space-between;gap:10px;font-size:.88rem;border-top:1px solid rgba(0,0,0,.1);padding-top:5px}
+.scen .row.ok b{color:var(--good)}.scen .row.ko b{color:var(--bad)}
+.grip{border:0;background:transparent;color:var(--muted);cursor:grab;padding:0 4px;font-size:1.1rem;line-height:1;touch-action:none;user-select:none}
+.grip:hover{color:var(--fg)}
+.dragging{opacity:.45}
+.drop-before{box-shadow:0 -3px 0 var(--pick)}
+.drop-after{box-shadow:0 3px 0 var(--pick)}
+.section.drop-in{outline:2px dashed var(--pick);outline-offset:4px;border-radius:8px}
 @media (prefers-reduced-motion:no-preference){.opt,.btn{transition:background .12s,border-color .12s}}
 </style>
 
@@ -194,6 +209,34 @@ aside.side{display:none}
 </div>
 
 <script>
+window.fbReady = new Promise(r => { window.fbResolve = r; });
+setTimeout(() => window.fbResolve(null), 8000);
+</script>
+<script type="module">
+/* Firebase (Firestore): stessi dati su tutti i dispositivi */
+try {
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const { getFirestore, doc, getDoc, setDoc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const app = initializeApp({
+    apiKey: "AIzaSyCagRWElmD_clcKeZ4Plsh17XLnx9aLwVw",
+    authDomain: "budgetcasa-5c5dd.firebaseapp.com",
+    projectId: "budgetcasa-5c5dd",
+    storageBucket: "budgetcasa-5c5dd.firebasestorage.app",
+    messagingSenderId: "560824324197",
+    appId: "1:560824324197:web:16db277a0b1ea91af6f68c"
+  });
+  const fs = getFirestore(app);
+  const ref = p => { const [c, d] = p.split("/"); return doc(fs, c, d); };
+  window.fbResolve({
+    doc: p => ({
+      get: async () => { const s = await getDoc(ref(p)); return { exists: s.exists(), data: () => s.data() }; },
+      set: d => setDoc(ref(p), d)
+    }),
+    listen: (p, cb) => onSnapshot(ref(p), s => { if (s.exists() && !s.metadata.hasPendingWrites) cb(s.data()); }, () => {})
+  });
+} catch (e) { console.error("Firebase non disponibile", e); window.fbResolve(null); }
+</script>
+<script>
 (() => {
 const PAGES = [
   {id:"riepilogo", nome:"Riepilogo"},
@@ -201,7 +244,7 @@ const PAGES = [
   {id:"mutuo", nome:"Mutuo"},
   {id:"notaio-agenzia", nome:"Notaio e agenzia"},
   {id:"lavori", nome:"Lavori"},
-  {id:"arredo", nome:"Arredo e trasloco"},
+  {id:"arredo", nome:"Arredo"},
   {id:"altro", nome:"Verifiche e altro"},
 ];
 const ITEM_PAGES = ["mutuo","notaio-agenzia","lavori","arredo","altro"];
@@ -277,7 +320,7 @@ async function flush(){
   dirty = false; saving = true;
   const snap = JSON.parse(JSON.stringify(S));
   try {
-    if (store.kind === "db"){ setStatus("Salvataggio…"); await store.db.doc(DOC).set(snap); setStatus("Salvato"); }
+    if (store.kind === "db"){ setStatus("Salvataggio…"); await store.db.doc(DOC).set(snap); setStatus("Sincronizzato"); }
     else { localStorage.setItem(LS, JSON.stringify(snap)); setStatus("Salvato solo su questo dispositivo"); }
   } catch (e){
     dirty = true;
@@ -294,7 +337,7 @@ function blankState(){
   const sez = [
     ["agenzia","Agenzia immobiliare","notaio-agenzia"],["notaio","Notaio e imposte","notaio-agenzia"],
     ["mutuo","Spese del mutuo","mutuo"],["lavori","Ristrutturazione","lavori"],
-    ["arredo","Arredamento","arredo"],["trasloco","Trasloco e utenze","arredo"],
+    ["arredo","Arredamento","arredo"],["trasloco","Trasloco e utenze","altro"],
     ["verifiche","Verifiche tecniche","altro"],["altro","Altre spese","altro"]];
   return {v:1, casa:{prezzo:0}, mutuo:{importo:0, tasso:3, anni:25}, soldi:[], promemoria:[],
     sezioni: sez.map(([id, nome, pagina]) => ({id, nome, pagina})), voci:[]};
@@ -305,6 +348,7 @@ function normalize(x){
   s.casa = Object.assign({prezzo:0}, s.casa); s.mutuo = Object.assign({importo:0, tasso:3, anni:25}, s.mutuo);
   s.soldi = Array.isArray(s.soldi) ? s.soldi : []; s.promemoria = Array.isArray(s.promemoria) ? s.promemoria : [];
   s.sezioni = Array.isArray(s.sezioni) ? s.sezioni : b.sezioni; s.voci = Array.isArray(s.voci) ? s.voci : [];
+  s.sezioni.forEach(z => { if (/trasloco|utenz/i.test(z.nome) && !/arred/i.test(z.nome)){ if (z.pagina === "arredo") z.pagina = "altro"; } else if (/arred/i.test(z.nome) && z.pagina === "altro") z.pagina = "arredo"; });
   s.voci.forEach(v => { v.opzioni = (v.opzioni || []).map(o => ({id:o.id || uid(), prezzo:Number(o.prezzo) || 0, nota:o.nota || "", link:o.link || ""})); v.stato = v.stato || "da-decidere"; if (!v.id) v.id = uid(); });
   return s;
 }
@@ -353,21 +397,47 @@ function renderRiepilogo(){
   return `
   <div class="pagehead"><h2>Riepilogo</h2>
     <div class="actions"><button class="btn small" data-act="all-min">Scegli tutto economico</button><button class="btn small" data-act="all-max">Scegli tutto costoso</button></div></div>
-  <div class="tiles">
-    <div class="tile"><span class="lbl">Spese scelte</span><span class="big num">${fmt(spese)}</span><span class="hint">Oltre al prezzo della casa. Tra ${fmt(sMin)} e ${fmt(sMax)}</span></div>
-    <div class="tile"><span class="lbl">Da coprire con i tuoi soldi</span><span class="big num">${fmt(serve)}</span><span class="hint">Casa ${fmt(prezzo)} + spese − mutuo ${fmt(mutuo)}</span></div>
-    <div class="tile"><span class="lbl">Soldi disponibili</span><span class="big num">${fmt(soldi)}</span><span class="hint"><a href="#soldi">Modifica</a></span></div>
-    <div class="tile ${marg >= 0 ? "good" : "bad"}"><span class="lbl">${marg >= 0 ? "Ti avanzano" : "Ti mancano"}</span><span class="big num">${fmt(Math.abs(marg))}</span><span class="hint">Con le opzioni scelte ora</span></div>
+  <p class="sub">Soldi disponibili <b class="num">${fmt(soldi)}</b> · Casa ${fmt(prezzo)} · Mutuo ${fmt(mutuo)} · <a href="#soldi">Modifica</a></p>
+  <div class="scen">${[["Voci spuntate, opzioni scelte",spese],["Voci spuntate, tutte le più economiche",sMin],["Voci spuntate, tutte le più care",sMax]].map(([l,s]) => {
+    const m = soldi - (prezzo + s - mutuo);
+    return `<div class="card"><span class="lbl">${l}</span><span class="big num">${fmt(s)}</span><span class="hint sub">Spese oltre al prezzo della casa</span>
+      <div class="row"><span>Da coprire con i tuoi soldi</span><b class="num">${fmt(prezzo + s - mutuo)}</b></div>
+      <div class="row ${m >= 0 ? "ok" : "ko"}"><span>${m >= 0 ? "Ti avanzano" : "Ti mancano"}</span><b class="num">${fmt(Math.abs(m))}</b></div></div>`;}).join("")}
   </div>
-  <div class="sum panel">
-    <div><span>Se scegli sempre il più economico</span><b class="num">${marginTxt(sMin)}</b></div>
-    <div><span>Se scegli sempre il più costoso</span><b class="num">${marginTxt(sMax)}</b></div>
-  </div>
+  ${renderSimMutuo()}
   <div class="section"><div class="sechead"><h3>Spese per pagina</h3></div>
-    <div class="tablewrap"><table><thead><tr><th>Voce</th><th class="r">Scelto</th><th class="r">Minimo</th><th class="r">Massimo</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+    <div class="tablewrap"><table><thead><tr><th>Voce</th><th class="r">Scelto</th><th class="r">Più economico</th><th class="r">Più caro</th></tr></thead><tbody>${rows}</tbody></table></div></div>
   <div class="section"><div class="sechead"><h3>Promemoria</h3></div>
     ${memo || `<p class="sub">Nessun promemoria.</p>`}
     <form class="inline" data-form="memo" style="margin-left:0"><label>Nuovo promemoria<input id="memo-new" name="testo" class="f-wide" placeholder="Es. chiedere all'agenzia l'APE"></label><button class="btn">Aggiungi</button></form>
+  </div>`;
+}
+function withMutuo(imp, fn){
+  const old = S.mutuo.importo; S.mutuo.importo = imp;
+  try { return fn(); } finally { S.mutuo.importo = old; }
+}
+function renderSimMutuo(){
+  const cur = S.mutuo.importo || 0, prezzo = S.casa.prezzo || 0, soldi = soldiTot();
+  const max = Math.max(prezzo, cur, 100000);
+  const STEP = 10000;
+  const offs = [-30000,-20000,-10000,0,10000,20000,30000].map(o => cur + o).filter(x => x >= 0);
+  const rows = offs.map(imp => withMutuo(imp, () => {
+    const sp = allTot("sel"), serve = prezzo + sp - imp, m = soldi - serve, r = rata();
+    return `<tr ${imp === cur ? 'class="pg"' : ""}><td class="num">${fmt(imp)}${imp === cur ? " (attuale)" : ""}</td><td class="r num">${fmt(r)}</td><td class="r num">${fmt(sp)}</td><td class="r num">${fmt(serve)}</td>
+      <td class="r num" style="color:var(${m >= 0 ? "--good" : "--bad"})">${m >= 0 ? "+" : "−"}${fmt(Math.abs(m))}</td>
+      <td class="r">${imp === cur ? "" : `<button class="btn small" data-act="set-mutuo" data-val="${imp}">Usa</button>`}</td></tr>`;
+  })).join("");
+  const ltv = prezzo ? cur / prezzo * 100 : 0;
+  return `<div class="panel"><h3>E se cambio il mutuo?</h3>
+    <div class="grid3">
+      <label class="field">Importo del mutuo (€)<input id="sim-mutuo" inputmode="decimal" class="num" value="${cur || ""}" data-ch="mutuo" data-f="importo"></label>
+      <label class="field">Rata mensile<span class="num" style="font-size:1.2rem;color:var(--fg);font-weight:600;padding:8px 0">${fmt(rata())}</span></label>
+      <label class="field">Mutuo sul prezzo<span class="num" style="font-size:1.2rem;color:var(--fg);font-weight:600;padding:8px 0">${ltv.toFixed(0)}%</span></label>
+    </div>
+    <input type="range" id="sim-range" min="0" max="${max}" step="${STEP / 10}" value="${cur}" data-ch="mutuo" data-f="importo" aria-label="Importo del mutuo" style="width:100%;accent-color:var(--pick)">
+    <div class="actions"><button class="btn small" data-act="mutuo-step" data-val="-${STEP}">− 10.000</button><button class="btn small" data-act="mutuo-step" data-val="${STEP}">+ 10.000</button></div>
+    <p class="sub">Cambiando il mutuo si aggiornano anche le voci calcolate sul mutuo (es. imposta sostitutiva). Calcolo con le opzioni scelte e partendo dai soldi che hai indicato (${fmt(soldi)}).</p>
+    <div class="tablewrap"><table><thead><tr><th>Mutuo</th><th class="r">Rata/mese</th><th class="r">Spese</th><th class="r">Da coprire</th><th class="r">Ti avanza / manca</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
 function marginTxt(spese){
@@ -429,22 +499,27 @@ function renderItemsPage(p){
   let h = p === "mutuo" ? "" : `<div class="pagehead"><h2>${esc(pn)}</h2><span class="tot">Scelto <b class="num">${fmt(pageTot(p,"sel"))}</b></span></div>`;
   secs.forEach(s => { h += renderSection(s); });
   if (ui.form && ui.form.kind === "sez" && ui.form.page === p){
-    h += `<form class="inline" data-form="sez" style="margin-left:0"><label>Nome della nuova sezione<input id="sez-new" name="nome" class="f-wide" data-autofocus required></label><button class="btn primary">Crea</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
-  } else h += `<div><button class="btn ghost" data-act="add-sez" data-page="${p}">+ Nuova sezione</button></div>`;
+    h += `<form class="inline" data-form="sez" style="margin-left:0"><label>Nome della nuova ${p === "arredo" ? "camera" : "sezione"}<input id="sez-new" name="nome" class="f-wide" data-autofocus required></label><button class="btn primary">Crea</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
+  } else h += `<div><button class="btn ghost" data-act="add-sez" data-page="${p}">+ Nuova ${p === "arredo" ? "camera" : "sezione"}</button></div>`;
   return h;
 }
 
 function renderSection(s){
   const items = S.voci.filter(v => v.sez === s.id);
-  let h = `<div class="section"><div class="sechead"><h3>${esc(s.nome)}</h3><span class="range num">Scelto <b>${fmt(secTot(s.id,"sel"))}</b> · da ${fmt(secTot(s.id,"min"))} a ${fmt(secTot(s.id,"max"))}</span></div>`;
+  const room = s.pagina === "arredo";
+  const renS = ui.form && ui.form.kind === "rename-sez" && ui.form.id === s.id;
+  const title = renS
+    ? `<form data-form="rename-sez" data-id="${s.id}" style="display:flex;gap:6px;flex-wrap:wrap"><input id="rensez-${s.id}" name="nome" value="${esc(s.nome)}" data-autofocus class="f-wide" style="border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--surface)"><button class="btn small primary">Salva</button><button type="button" class="btn small ghost" data-act="cancel-form">Annulla</button></form>`
+    : `<h3><button class="grip" data-drag="sez" data-id="${s.id}" aria-label="Trascina per spostare" title="Trascina per spostare">⠿</button>${esc(s.nome)} <button class="rb" data-act="rename-sez" data-id="${s.id}" data-tip="Rinomina" aria-label="Rinomina">✎</button></h3>`;
+  let h = `<div class="section" data-sid="${s.id}"><div class="sechead">${title}<span class="range num">Scelto <b>${fmt(secTot(s.id,"sel"))}</b> · da ${fmt(secTot(s.id,"min"))} a ${fmt(secTot(s.id,"max"))}</span></div>`;
   items.forEach(v => { h += renderItem(v); });
   if (ui.form && ui.form.kind === "voce" && ui.form.sez === s.id){
     h += `<form class="inline" data-form="voce" data-sez="${s.id}" style="margin-left:0">
-      <label>Nuova voce<input id="voce-new" name="nome" class="f-wide" data-autofocus required placeholder="Es. Porte interne"></label>
+      <label>${room ? "Nuovo mobile" : "Nuova voce"}<input id="voce-new" name="nome" class="f-wide" data-autofocus required placeholder="${room ? "Es. Divano" : "Es. Porte interne"}"></label>
       <label>Primo prezzo (€)<input id="voce-new-p" name="prezzo" class="f-price" inputmode="decimal"></label>
       <button class="btn primary">Aggiungi</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
   } else {
-    h += `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-act="add-voce" data-sez="${s.id}">+ Nuova voce</button>${items.length ? "" : askOr("sez", s.id, null, `<button class="btn ghost danger" data-act="del-sez" data-id="${s.id}">Elimina sezione</button>`)}</div>`;
+    h += `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-act="add-voce" data-sez="${s.id}">+ ${room ? "Nuovo mobile" : "Nuova voce"}</button>${items.length ? "" : askOr("sez", s.id, null, `<button class="btn ghost danger" data-act="del-sez" data-id="${s.id}">Elimina ${room ? "camera" : "sezione"}</button>`)}</div>`;
   }
   return h + `</div>`;
 }
@@ -493,10 +568,10 @@ function renderItem(v){
   const icons = renaming ? "" : `<span class="ricons">${isAuto(v) ? "" : ib("add-opt", "+", "Aggiungi un prezzo")}${ib("rename", "✎", "Rinomina")}${askOr("voce", v.id, null, ib("del-voce", "🗑", "Elimina voce", "danger"))}</span>`;
   const statoSel = `<select class="stato s-${v.stato}" id="stato-${v.id}" data-ch="stato" data-id="${v.id}" aria-label="Stato">${STATI.map(([k, l]) => `<option value="${k}" ${v.stato === k ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const rng = !isAuto(v) && opts.length > 1 ? `<small class="num">da ${fmt(val(v,"min"))} a ${fmt(val(v,"max"))}</small>` : `<small>${v.attiva ? "" : "non conteggiata"}</small>`;
-  return `<div class="item ${v.attiva ? "" : "off"}">
+  return `<div class="item ${v.attiva ? "" : "off"}" data-vid="${v.id}">
     <div class="ihead">
       <input type="checkbox" id="att-${v.id}" ${v.attiva ? "checked" : ""} data-ch="attiva" data-id="${v.id}" aria-label="Conta questa voce nel totale">
-      <div style="min-width:0"><div class="nrow">${name}${icons}</div><div class="imeta">${statoSel}${calcSel}</div></div>
+      <div style="min-width:0"><div class="nrow">${renaming ? "" : `<button class="grip" data-drag="voce" data-id="${v.id}" aria-label="Trascina per spostare" title="Trascina per spostare">⠿</button>`}${name}${icons}</div><div class="imeta">${statoSel}${calcSel}</div></div>
       <div class="chosen num">${fmt(val(v))}${rng}</div>
     </div>${body}${tools}</div>`;
 }
@@ -604,8 +679,11 @@ document.addEventListener("click", async e => {
     case "import-ok": { if (!ui.importing || !ui.importing.data) return; S = ui.importing.data; ui.importing = null; ui.form = null; location.hash = "riepilogo"; commit(); return; }
     case "start-blank": S = blankState(); commit(); return;
     case "cancel-form": ui.form = null; break;
+    case "set-mutuo": S.mutuo.importo = Number(t.dataset.val) || 0; commit(); return;
+    case "mutuo-step": S.mutuo.importo = Math.max(0, (S.mutuo.importo || 0) + Number(t.dataset.val)); commit(); return;
     case "add-opt": ui.form = {kind:"opt", id, opt:null}; break;
     case "edit-opt": ui.form = {kind:"opt", id, opt}; break;
+    case "rename-sez": ui.form = {kind:"rename-sez", id}; break;
     case "rename": ui.form = {kind:"rename", id}; break;
     case "comment": ui.form = {kind:"comm", id}; break;
     case "add-voce": ui.form = {kind:"voce", sez: t.dataset.sez}; break;
@@ -665,6 +743,8 @@ document.addEventListener("submit", e => {
     findV(f.dataset.id).commento = String(fd.get("commento") || "").trim();
   } else if (kind === "rename"){
     const n = String(fd.get("nome") || "").trim(); if (n) findV(f.dataset.id).nome = n;
+  } else if (kind === "rename-sez"){
+    const n = String(fd.get("nome") || "").trim(); const s = S.sezioni.find(x => x.id === f.dataset.id); if (n && s) s.nome = n;
   } else if (kind === "voce"){
     const n = String(fd.get("nome") || "").trim(); if (!n) return;
     const p = parseNum(fd.get("prezzo"));
@@ -680,6 +760,58 @@ document.addEventListener("submit", e => {
   }
   ui.form = null; commit();
 });
+/* ---------- trascinamento (mouse e touch) ---------- */
+let drag = null;
+const clearMarks = () => document.querySelectorAll(".drop-before,.drop-after,.drop-in").forEach(x => x.classList.remove("drop-before","drop-after","drop-in"));
+document.addEventListener("pointerdown", e => {
+  const g = e.target.closest("[data-drag]"); if (!g || !S) return;
+  e.preventDefault();
+  const kind = g.dataset.drag, src = g.closest(kind === "voce" ? ".item" : ".section");
+  drag = {kind, id:g.dataset.id, src, drop:null};
+  src.classList.add("dragging");
+  try { g.setPointerCapture(e.pointerId); } catch {}
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  clearMarks(); drag.drop = null;
+  if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > innerHeight - 70) window.scrollBy(0, 14);
+  const el = document.elementFromPoint(e.clientX, e.clientY); if (!el) return;
+  const pos = n => { const r = n.getBoundingClientRect(); return e.clientY < r.top + r.height / 2 ? "before" : "after"; };
+  if (drag.kind === "voce"){
+    const it = el.closest(".item");
+    if (it){ if (it === drag.src) return; const ps = pos(it); drag.drop = {vid:it.dataset.vid, pos:ps}; it.classList.add("drop-" + ps); return; }
+    const sec = el.closest(".section"); if (sec){ drag.drop = {sid:sec.dataset.sid}; sec.classList.add("drop-in"); }
+  } else {
+    const sec = el.closest(".section"); if (!sec || sec === drag.src) return;
+    const ps = pos(sec); drag.drop = {sid:sec.dataset.sid, pos:ps}; sec.classList.add("drop-" + ps);
+  }
+});
+function endDrag(apply){
+  if (!drag) return;
+  const d = drag; drag = null; clearMarks(); d.src.classList.remove("dragging");
+  if (!apply || !d.drop) return;
+  if (d.kind === "voce"){
+    const v = findV(d.id); if (!v) return;
+    S.voci = S.voci.filter(x => x !== v);
+    if (d.drop.vid){
+      const t = findV(d.drop.vid); v.sez = t.sez;
+      S.voci.splice(S.voci.indexOf(t) + (d.drop.pos === "after" ? 1 : 0), 0, v);
+    } else {
+      v.sez = d.drop.sid;
+      let last = -1; S.voci.forEach((x, i) => { if (x.sez === v.sez) last = i; });
+      S.voci.splice(last < 0 ? S.voci.length : last + 1, 0, v);
+    }
+  } else {
+    const s = S.sezioni.find(x => x.id === d.id); if (!s) return;
+    S.sezioni = S.sezioni.filter(x => x !== s);
+    const t = S.sezioni.find(x => x.id === d.drop.sid);
+    S.sezioni.splice(S.sezioni.indexOf(t) + (d.drop.pos === "after" ? 1 : 0), 0, s);
+  }
+  commit();
+}
+document.addEventListener("pointerup", () => endDrag(true));
+document.addEventListener("pointercancel", () => endDrag(false));
+
 function route(){
   const h = location.hash.replace("#", "");
   page = PAGES.some(p => p.id === h) ? h : "riepilogo";
@@ -691,13 +823,25 @@ window.addEventListener("hashchange", () => { route(); window.scrollTo({top:0});
 async function boot(){
   route();
   let db = null;
-  try { db = await (window.claude?.use ? window.claude.use("db") : null); } catch {}
+  try { db = await window.fbReady; } catch {}
   if (db){
     store = {kind:"db", db};
     try {
       const snap = await Promise.race([db.doc(DOC).get(), new Promise((_, rej) => setTimeout(() => rej({code:"timeout"}), 10000))]);
       S = snap.exists ? normalize(snap.data()) : null;
-      setStatus(S ? "Salvato" : "Nessun dato salvato");
+      setStatus(S ? "Sincronizzato" : "Nessun dato salvato");
+      if (!S){ // prima volta: porta su i dati salvati in locale, se ci sono
+        try { const raw = localStorage.getItem(LS); if (raw){ S = normalize(JSON.parse(raw)); dirty = true; flush(); } } catch {}
+      }
+      let pending = null;
+      const applyRemote = d => { S = normalize(d); render(); setStatus("Sincronizzato"); };
+      db.listen(DOC, d => {
+        if (dirty || saving) return;
+        const el = document.activeElement;
+        if (el && el.closest && el.closest("#main") && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)){ pending = d; return; }
+        applyRemote(d);
+      });
+      document.addEventListener("focusout", () => setTimeout(() => { if (pending && !dirty && !saving){ const d = pending; pending = null; applyRemote(d); } }, 300));
     } catch (e){
       setStatus(e && e.code === "timeout" ? "I dati non rispondono ancora: ricarica tra poco" : "Dati non disponibili");
     }
