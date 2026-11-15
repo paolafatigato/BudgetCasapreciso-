@@ -1,0 +1,697 @@
+<title>Via Damiani 28</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: una colonna centrale da cantiere/planimetria — testata con le pagine, schede voce con le opzioni di prezzo ordinate */
+:root{
+  /* Palette: Ivory · Periwinkle · Lemon · Peach Fuzz · Night */
+  --ivory:#FFF4E6; --peri:#BCB4FF; --lemon:#E9FC87; --peach:#FFBE98; --night:#141414;
+  --bg:var(--ivory); --surface:#FFFBF5; --surface-2:#FBE9D3; --line:#EAD8C0;
+  --fg:var(--night); --muted:#62594E; --accent:#4F41C9; --accent-soft:#DDD8FF;
+  --pick:#6A5BE6; --pick-soft:#E8E4FF;
+  --good:#3C5A00; --good-soft:#E9FC87; --bad:#A8321F; --bad-soft:#FFD3BA;
+  --f-display:"Fraunces", Georgia, "Times New Roman", serif;
+  --f-body:"Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --r:12px; color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:920px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+h1{font-size:1.9rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+h1 span{background:linear-gradient(transparent 62%,var(--lemon) 62% 92%,transparent 92%);padding:0 2px}
+h2{font-size:1.35rem;font-weight:700}
+h3{font-size:1.02rem;font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-top:18px;border-bottom:1px solid var(--line)}
+.toprow{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;justify-content:space-between}
+.sub{color:var(--muted);font-size:.85rem}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.status{font-size:.78rem;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:12px;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{white-space:nowrap;text-decoration:none;color:var(--muted);padding:9px 12px;border-bottom:3px solid transparent;font-weight:500;font-size:.92rem}
+nav.tabs a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--peri)}
+nav.tabs a:hover{color:var(--fg)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:.88rem;font-weight:500}
+.btn:hover{border-color:var(--night)}
+.btn.primary{background:var(--peri);border-color:var(--peri);color:var(--night);font-weight:600}
+.btn.primary:hover{background:#A89EFF;border-color:#A89EFF}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 8px}
+.btn.ghost:hover{color:var(--fg);border-color:var(--line)}
+.btn.danger{color:var(--bad)}
+.btn.small{padding:4px 9px;font-size:.8rem}
+
+main{display:flex;flex-direction:column;gap:22px;padding-top:22px}
+.pagehead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+.pagehead .tot{font-size:1.05rem}
+.tot b{font-family:var(--f-display);font-size:1.35rem}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.tile .lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tile .big{font-family:var(--f-display);font-size:1.6rem;font-weight:700}
+.tile .hint{font-size:.8rem;color:var(--muted)}
+.tiles .tile:nth-child(1),aside.side .tile:nth-child(1){background:var(--accent-soft);border-color:transparent}
+.tiles .tile:nth-child(2),aside.side .tile:nth-child(2){background:#FFE3D1;border-color:transparent}
+.tiles .tile:nth-child(3){background:var(--surface-2);border-color:transparent}
+.tile.good,.tiles .tile.good,aside.side .tile.good{background:var(--good-soft);border-color:transparent}.tile.good .big{color:var(--good)}
+.tile.bad,.tiles .tile.bad,aside.side .tile.bad{background:var(--bad-soft);border-color:transparent}.tile.bad .big{color:var(--bad)}
+
+.section{display:flex;flex-direction:column;gap:10px}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:4px;border-bottom:2px solid var(--night)}
+.sechead .range{font-size:.82rem;color:var(--muted)}
+
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.item.off{background:transparent;border-style:dashed}
+.item.off .iname,.item.off .chosen{color:var(--muted)}
+.ihead{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start}
+.ihead input[type=checkbox]{width:18px;height:18px;margin-top:3px;accent-color:var(--accent)}
+.iname{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.imeta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.chosen{text-align:right;font-family:var(--f-display);font-weight:700;font-size:1.15rem;white-space:nowrap}
+.chosen small{display:block;font-family:var(--f-body);font-weight:400;font-size:.75rem;color:var(--muted)}
+select.stato{font-size:.75rem;border-radius:99px;padding:2px 8px;border:1px solid var(--line);background:var(--surface-2)}
+select.stato.s-deciso{background:var(--accent-soft);border-color:transparent}
+select.stato.s-fatto{background:var(--lemon);border-color:transparent;color:var(--good)}
+select.stato:not(.s-deciso):not(.s-fatto){background:#FFE3D1;border-color:transparent}
+
+.opts{display:flex;flex-direction:column;gap:4px;margin-left:28px}
+.opt{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;align-items:center;padding:6px 10px;border-radius:8px;border:1px solid transparent}
+.opt:hover{background:var(--surface-2)}
+.opt.sel{background:var(--pick-soft);border-color:var(--pick)}
+.opt input[type=radio]{accent-color:var(--pick);width:16px;height:16px;margin:0}
+.opt .p{font-weight:600;white-space:nowrap}
+.opt .n{font-size:.85rem;color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.opt .n a{margin-left:6px}
+.opt .n{display:flex;align-items:center;gap:6px}
+.onote{flex:1;min-width:0;border:1px solid transparent;border-bottom-color:var(--line);background:transparent;border-radius:6px;padding:3px 6px;font-size:.85rem;color:var(--fg)}
+.onote:hover{border-color:var(--line)}
+.onote:focus{background:var(--surface);border-color:var(--accent);outline:none}
+.opt .tools{display:flex;gap:2px}
+.calc{margin-left:28px;font-size:.88rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.calc input{width:70px}
+.addrow{margin-left:28px;display:flex;gap:6px;flex-wrap:wrap}
+
+form.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-left:28px;padding:10px;border-radius:8px;background:var(--surface-2)}
+form.inline label{display:flex;flex-direction:column;gap:2px;font-size:.75rem;color:var(--muted);min-width:0}
+form.inline input{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--surface);min-width:0}
+.f-price{width:110px}.f-note{width:220px;max-width:100%}.f-link{width:220px;max-width:100%}
+.f-wide{width:260px;max-width:100%}
+.ask{display:inline-flex;gap:6px;align-items:center;font-size:.82rem;color:var(--bad)}
+
+.field{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted)}
+.field input{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);font-size:1rem;color:var(--fg);width:100%}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right}
+tr.pg td{font-weight:600;background:var(--accent-soft)}
+.sum{display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.sum div{display:flex;justify-content:space-between;gap:12px}
+.sum .res{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
+
+.money{display:grid;grid-template-columns:1fr 140px 1fr auto;gap:8px;align-items:center}
+.money input{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--surface);min-width:0;width:100%}
+.memo{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.notice{background:var(--peach);border-radius:8px;padding:10px 12px;font-size:.88rem}
+.importbox{background:var(--surface);border:2px solid var(--peri);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+textarea{width:100%;min-height:160px;font-family:ui-monospace,Consolas,monospace;font-size:.78rem;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);padding:8px}
+@media (max-width:560px){
+  .money{grid-template-columns:1fr 110px auto}
+  .money .mnote{grid-column:1 / -1;order:5}
+  .opts,.calc,.addrow,form.inline{margin-left:0}
+  .opt{grid-template-columns:auto auto 1fr;}
+  .opt .tools{grid-column:1 / -1;justify-content:flex-end}
+}
+.icomm{margin-left:28px;font-size:.85rem;color:var(--muted);font-style:italic;white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid var(--line);padding-left:8px}
+form.comm{margin-left:28px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+form.comm textarea{min-height:60px;font-family:var(--f-body);font-size:.9rem}
+.layout{display:block}
+aside.side{display:none}
+@media (min-width:900px){
+  .wrap{max-width:1180px}
+  .layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;align-items:start}
+  aside.side{display:flex;flex-direction:column;gap:10px;position:sticky;top:130px;margin-top:22px}
+  aside.side .tile .big{font-size:1.35rem}
+  aside.side .tile{padding:11px 14px}
+  /* voci più compatte su desktop */
+  body{font-size:14px}
+  main{gap:16px}
+  .item{padding:8px 12px;gap:6px}
+  .opt{padding:3px 8px}
+  .ihead{gap:8px}
+  .chosen{font-size:1rem}
+  .btn.small{padding:2px 7px;font-size:.76rem}
+  .opts{gap:2px}
+  .tiles{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+}
+@media (prefers-reduced-motion:no-preference){.opt,.btn{transition:background .12s,border-color .12s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="toprow">
+      <div>
+        <h1><span>Via Damiani 28</span></h1>
+        <div class="sub">Budget acquisto e lavori · Piacenza</div>
+      </div>
+      <div class="actions">
+        <span class="status" id="status">Caricamento…</span>
+        <button class="btn" data-act="import" id="btn-import">Importa</button>
+        <button class="btn" data-act="export" id="btn-export">Esporta</button>
+        <input type="file" id="file" accept=".json,.xlsx,.xls" hidden>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+  <div class="layout">
+    <aside class="side" id="side" aria-label="Riepilogo soldi"></aside>
+    <main id="main"><div class="empty"><p>Caricamento dei dati…</p></div></main>
+  </div>
+</div>
+
+<script>
+(() => {
+const PAGES = [
+  {id:"riepilogo", nome:"Riepilogo"},
+  {id:"soldi", nome:"I miei soldi"},
+  {id:"mutuo", nome:"Mutuo"},
+  {id:"notaio-agenzia", nome:"Notaio e agenzia"},
+  {id:"lavori", nome:"Lavori"},
+  {id:"arredo", nome:"Arredo e trasloco"},
+  {id:"altro", nome:"Verifiche e altro"},
+];
+const ITEM_PAGES = ["mutuo","notaio-agenzia","lavori","arredo","altro"];
+const STATI = [["da-decidere","Da decidere"],["deciso","Deciso"],["fatto","Fatto / pagato"]];
+const DOC = "budget/stato";
+const LS = "viadamiani-budget-v1";
+
+let S = null;            // stato
+let ui = {form:null, confirm:null, importing:null, exportText:null};
+let store = {kind:"none", db:null};
+let page = "riepilogo";
+
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const EUR = new Intl.NumberFormat("it-IT", {style:"currency", currency:"EUR", maximumFractionDigits:2, minimumFractionDigits:0, useGrouping:"always"});
+const fmt = n => EUR.format(Math.round((n || 0) * 100) / 100);
+function parseNum(s){
+  if (typeof s === "number") return s;
+  s = String(s ?? "").replace(/[€\s]/g, "");
+  if (!s) return NaN;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  return Number(s);
+}
+function safeLink(l){
+  l = String(l || "").trim(); if (!l) return "";
+  if (!/^https?:\/\//i.test(l)) l = "https://" + l;
+  try { const u = new URL(l); return /^https?:$/.test(u.protocol) ? u.href : ""; } catch { return ""; }
+}
+
+/* ---------- calcoli ---------- */
+const sortOpts = v => (v.opzioni || []).slice().sort((a, b) => a.prezzo - b.prezzo);
+function baseFor(v, mode){
+  const secs = (v.calc && v.calc.sezioni) || [v.sez];
+  return S.voci.filter(x => x.attiva && !x.calc && secs.includes(x.sez)).reduce((t, x) => t + val(x, mode), 0);
+}
+function val(v, mode = "sel"){
+  if (v.calc){
+    if (v.calc.tipo === "sostitutiva") return (S.mutuo.importo || 0) * (v.calc.pct || 0) / 100;
+    if (v.calc.tipo === "percentuale") return baseFor(v, mode) * (v.calc.pct || 0) / 100;
+    return 0;
+  }
+  const o = sortOpts(v); if (!o.length) return 0;
+  if (mode === "min") return o[0].prezzo;
+  if (mode === "max") return o[o.length - 1].prezzo;
+  const s = o.find(x => x.id === v.scelta) || o[0];
+  return s.prezzo;
+}
+const secTot = (sid, mode) => S.voci.filter(v => v.sez === sid && v.attiva).reduce((t, v) => t + val(v, mode), 0);
+const pageSecs = p => S.sezioni.filter(s => s.pagina === p);
+const pageTot = (p, mode) => pageSecs(p).reduce((t, s) => t + secTot(s.id, mode), 0);
+const allTot = mode => S.sezioni.reduce((t, s) => t + secTot(s.id, mode), 0);
+const soldiTot = () => S.soldi.reduce((t, x) => t + (x.importo || 0), 0);
+function rata(){
+  const P = S.mutuo.importo || 0, n = (S.mutuo.anni || 0) * 12, i = (S.mutuo.tasso || 0) / 100 / 12;
+  if (!P || !n) return 0;
+  return i ? P * i / (1 - Math.pow(1 + i, -n)) : P / n;
+}
+
+/* ---------- salvataggio ---------- */
+let saveTimer = null, saving = false, dirty = false;
+function setStatus(t){ $("#status").textContent = t; }
+function commit(){ render(); dirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 600); setStatus("Modifiche da salvare…"); }
+async function flush(){
+  if (!dirty || saving) return;
+  dirty = false; saving = true;
+  const snap = JSON.parse(JSON.stringify(S));
+  try {
+    if (store.kind === "db"){ setStatus("Salvataggio…"); await store.db.doc(DOC).set(snap); setStatus("Salvato"); }
+    else { localStorage.setItem(LS, JSON.stringify(snap)); setStatus("Salvato solo su questo dispositivo"); }
+  } catch (e){
+    dirty = true;
+    setStatus(e && e.code === "quota_exceeded" ? "Spazio esaurito: esporta un backup" : "Non salvato: riprovo tra poco");
+    clearTimeout(saveTimer); saveTimer = setTimeout(flush, 4000);
+  } finally {
+    saving = false;
+    if (dirty) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 600); }
+  }
+}
+
+/* ---------- struttura vuota ---------- */
+function blankState(){
+  const sez = [
+    ["agenzia","Agenzia immobiliare","notaio-agenzia"],["notaio","Notaio e imposte","notaio-agenzia"],
+    ["mutuo","Spese del mutuo","mutuo"],["lavori","Ristrutturazione","lavori"],
+    ["arredo","Arredamento","arredo"],["trasloco","Trasloco e utenze","arredo"],
+    ["verifiche","Verifiche tecniche","altro"],["altro","Altre spese","altro"]];
+  return {v:1, casa:{prezzo:0}, mutuo:{importo:0, tasso:3, anni:25}, soldi:[], promemoria:[],
+    sezioni: sez.map(([id, nome, pagina]) => ({id, nome, pagina})), voci:[]};
+}
+function normalize(x){
+  const b = blankState();
+  const s = Object.assign(b, x || {});
+  s.casa = Object.assign({prezzo:0}, s.casa); s.mutuo = Object.assign({importo:0, tasso:3, anni:25}, s.mutuo);
+  s.soldi = Array.isArray(s.soldi) ? s.soldi : []; s.promemoria = Array.isArray(s.promemoria) ? s.promemoria : [];
+  s.sezioni = Array.isArray(s.sezioni) ? s.sezioni : b.sezioni; s.voci = Array.isArray(s.voci) ? s.voci : [];
+  s.voci.forEach(v => { v.opzioni = (v.opzioni || []).map(o => ({id:o.id || uid(), prezzo:Number(o.prezzo) || 0, nota:o.nota || "", link:o.link || ""})); v.stato = v.stato || "da-decidere"; if (!v.id) v.id = uid(); });
+  return s;
+}
+
+/* ---------- render ---------- */
+function render(){
+  $("#tabs").innerHTML = PAGES.map(p => `<a href="#${p.id}" ${p.id === page ? 'aria-current="page"' : ""}>${esc(p.nome)}</a>`).join("");
+  const m = $("#main");
+  $("#side").innerHTML = S ? renderSide() : "";
+  let h = "";
+  if (ui.importing) h += renderImport();
+  if (ui.exportText) h += `<div class="importbox"><h3>Copia di sicurezza</h3><p class="sub">Il salvataggio diretto non è disponibile qui. Copia questo testo in un file .json: potrai reimportarlo con “Importa”.</p><textarea id="exporttxt" readonly>${esc(ui.exportText)}</textarea><div class="actions"><button class="btn primary" data-act="copy-json">Copia</button><button class="btn" data-act="export-close">Chiudi</button></div></div>`;
+  if (!S){
+    h += `<div class="empty"><h2>Nessun dato ancora</h2><p class="sub">Importa il tuo Excel del budget (foglio “Via Damiani”) o un backup .json, oppure parti da una struttura vuota.</p><div class="actions"><button class="btn primary" data-act="import">Importa file</button><button class="btn" data-act="start-blank">Parti da zero</button></div></div>`;
+    m.innerHTML = h; return;
+  }
+  if (page === "riepilogo") h += renderRiepilogo();
+  else if (page === "soldi") h += renderSoldi();
+  else if (page === "mutuo") h += renderMutuo() + renderItemsPage("mutuo");
+  else h += renderItemsPage(page);
+  m.innerHTML = h;
+  const f = m.querySelector("[data-autofocus]"); if (f) f.focus();
+}
+
+function renderSide(){
+  const spese = allTot("sel"), prezzo = S.casa.prezzo || 0, mutuo = S.mutuo.importo || 0;
+  const soldi = soldiTot(), marg = soldi - (prezzo + spese - mutuo);
+  return `<div class="tile"><span class="lbl">Soldi che ho</span><span class="big num">${fmt(soldi)}</span><span class="hint"><a href="#soldi">Modifica</a></span></div>
+    <div class="tile"><span class="lbl">Spese con le voci scelte</span><span class="big num">${fmt(spese)}</span><span class="hint">Casa ${fmt(prezzo)} − mutuo ${fmt(mutuo)} escluse</span></div>
+    <div class="tile ${marg >= 0 ? "good" : "bad"}"><span class="lbl">${marg >= 0 ? "Ti avanzano" : "Ti mancano"}</span><span class="big num">${fmt(Math.abs(marg))}</span><span class="hint">Dopo casa, spese e mutuo</span></div>`;
+}
+
+function renderRiepilogo(){
+  const spese = allTot("sel"), prezzo = S.casa.prezzo || 0, mutuo = S.mutuo.importo || 0;
+  const serve = prezzo + spese - mutuo, soldi = soldiTot(), marg = soldi - serve;
+  const sMin = allTot("min"), sMax = allTot("max");
+  let rows = "";
+  ITEM_PAGES.forEach(p => {
+    const pn = PAGES.find(x => x.id === p).nome;
+    rows += `<tr class="pg"><td><a href="#${p}">${esc(pn)}</a></td><td class="r num">${fmt(pageTot(p,"sel"))}</td><td class="r num">${fmt(pageTot(p,"min"))}</td><td class="r num">${fmt(pageTot(p,"max"))}</td></tr>`;
+    pageSecs(p).forEach(s => {
+      rows += `<tr><td>${esc(s.nome)}</td><td class="r num">${fmt(secTot(s.id,"sel"))}</td><td class="r num">${fmt(secTot(s.id,"min"))}</td><td class="r num">${fmt(secTot(s.id,"max"))}</td></tr>`;
+    });
+  });
+  const memo = S.promemoria.map(x => `<div class="memo"><span>${esc(x.testo)}</span>${askOr("memo", x.id, null, `<button class="btn ghost small" data-act="del-memo" data-id="${x.id}" aria-label="Elimina promemoria">✕</button>`)}</div>`).join("");
+  return `
+  <div class="pagehead"><h2>Riepilogo</h2>
+    <div class="actions"><button class="btn small" data-act="all-min">Scegli tutto economico</button><button class="btn small" data-act="all-max">Scegli tutto costoso</button></div></div>
+  <div class="tiles">
+    <div class="tile"><span class="lbl">Spese scelte</span><span class="big num">${fmt(spese)}</span><span class="hint">Oltre al prezzo della casa. Tra ${fmt(sMin)} e ${fmt(sMax)}</span></div>
+    <div class="tile"><span class="lbl">Da coprire con i tuoi soldi</span><span class="big num">${fmt(serve)}</span><span class="hint">Casa ${fmt(prezzo)} + spese − mutuo ${fmt(mutuo)}</span></div>
+    <div class="tile"><span class="lbl">Soldi disponibili</span><span class="big num">${fmt(soldi)}</span><span class="hint"><a href="#soldi">Modifica</a></span></div>
+    <div class="tile ${marg >= 0 ? "good" : "bad"}"><span class="lbl">${marg >= 0 ? "Ti avanzano" : "Ti mancano"}</span><span class="big num">${fmt(Math.abs(marg))}</span><span class="hint">Con le opzioni scelte ora</span></div>
+  </div>
+  <div class="sum panel">
+    <div><span>Se scegli sempre il più economico</span><b class="num">${marginTxt(sMin)}</b></div>
+    <div><span>Se scegli sempre il più costoso</span><b class="num">${marginTxt(sMax)}</b></div>
+  </div>
+  <div class="section"><div class="sechead"><h3>Spese per pagina</h3></div>
+    <div class="tablewrap"><table><thead><tr><th>Voce</th><th class="r">Scelto</th><th class="r">Minimo</th><th class="r">Massimo</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+  <div class="section"><div class="sechead"><h3>Promemoria</h3></div>
+    ${memo || `<p class="sub">Nessun promemoria.</p>`}
+    <form class="inline" data-form="memo" style="margin-left:0"><label>Nuovo promemoria<input id="memo-new" name="testo" class="f-wide" placeholder="Es. chiedere all'agenzia l'APE"></label><button class="btn">Aggiungi</button></form>
+  </div>`;
+}
+function marginTxt(spese){
+  const m = soldiTot() - ((S.casa.prezzo || 0) + spese - (S.mutuo.importo || 0));
+  return (m >= 0 ? "avanzano " : "mancano ") + fmt(Math.abs(m));
+}
+
+function renderSoldi(){
+  const spese = allTot("sel"), prezzo = S.casa.prezzo || 0, mutuo = S.mutuo.importo || 0, serve = prezzo + spese - mutuo, soldi = soldiTot(), marg = soldi - serve;
+  const list = S.soldi.map(x => `<div class="money">
+      <input id="soldo-chi-${x.id}" aria-label="Chi" value="${esc(x.chi)}" data-ch="soldo" data-f="chi" data-id="${x.id}">
+      <input id="soldo-imp-${x.id}" aria-label="Importo" class="num" inputmode="decimal" value="${x.importo || ""}" data-ch="soldo" data-f="importo" data-id="${x.id}">
+      <input id="soldo-nota-${x.id}" class="mnote" aria-label="Nota" placeholder="Nota" value="${esc(x.nota)}" data-ch="soldo" data-f="nota" data-id="${x.id}">
+      ${askOr("soldo", x.id, null, `<button class="btn ghost small" data-act="del-soldo" data-id="${x.id}" aria-label="Elimina">✕</button>`)}
+    </div>`).join("");
+  return `
+  <div class="pagehead"><h2>I miei soldi</h2><span class="tot">Totale <b class="num">${fmt(soldi)}</b></span></div>
+  <div class="panel">
+    ${list || `<p class="sub">Aggiungi da dove arrivano i soldi (i tuoi, quelli della mamma…).</p>`}
+    <div><button class="btn" data-act="add-soldo">+ Aggiungi una fonte</button></div>
+  </div>
+  <div class="panel">
+    <h3>Il conto</h3>
+    <div class="grid3"><label class="field">Prezzo della casa (€)<input id="casa-prezzo" inputmode="decimal" class="num" value="${prezzo || ""}" data-ch="casa-prezzo"></label></div>
+    <div class="sum">
+      <div><span>Prezzo della casa</span><span class="num">${fmt(prezzo)}</span></div>
+      <div><span>+ Spese scelte (notaio, agenzia, lavori, arredo…)</span><span class="num">${fmt(spese)}</span></div>
+      <div><span>− Mutuo</span><span class="num">${fmt(mutuo)}</span></div>
+      <div class="res"><span>Da coprire con i tuoi soldi</span><span class="num">${fmt(serve)}</span></div>
+      <div><span>Soldi disponibili</span><span class="num">${fmt(soldi)}</span></div>
+      <div class="res" style="color:var(${marg >= 0 ? "--good" : "--bad"})"><span>${marg >= 0 ? "Ti avanzano" : "Ti mancano"}</span><span class="num">${fmt(Math.abs(marg))}</span></div>
+    </div>
+  </div>`;
+}
+
+function renderMutuo(){
+  const r = rata(), n = (S.mutuo.anni || 0) * 12, interessi = r * n - (S.mutuo.importo || 0);
+  const ltv = S.casa.prezzo ? (S.mutuo.importo || 0) / S.casa.prezzo * 100 : 0;
+  return `
+  <div class="pagehead"><h2>Mutuo</h2></div>
+  <div class="panel">
+    <div class="grid3">
+      <label class="field">Importo del mutuo (€)<input id="mutuo-importo" inputmode="decimal" class="num" value="${S.mutuo.importo || ""}" data-ch="mutuo" data-f="importo"></label>
+      <label class="field">Tasso annuo (%)<input id="mutuo-tasso" inputmode="decimal" class="num" value="${S.mutuo.tasso ?? ""}" data-ch="mutuo" data-f="tasso"></label>
+      <label class="field">Durata (anni)<input id="mutuo-anni" inputmode="numeric" class="num" value="${S.mutuo.anni || ""}" data-ch="mutuo" data-f="anni"></label>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span class="lbl">Rata mensile</span><span class="big num">${fmt(r)}</span><span class="hint">Rata fissa, ammortamento alla francese</span></div>
+      <div class="tile"><span class="lbl">Interessi totali</span><span class="big num">${fmt(Math.max(0, interessi))}</span><span class="hint">In ${S.mutuo.anni || 0} anni</span></div>
+      <div class="tile"><span class="lbl">Mutuo sul prezzo</span><span class="big num">${ltv.toFixed(0)}%</span><span class="hint">Le banche di solito finanziano fino all'80%</span></div>
+    </div>
+    <p class="sub">Il tasso è un'ipotesi: aggiornalo quando hai l'offerta della banca.</p>
+  </div>`;
+}
+
+function renderItemsPage(p){
+  const secs = pageSecs(p);
+  const pn = PAGES.find(x => x.id === p).nome;
+  let h = p === "mutuo" ? "" : `<div class="pagehead"><h2>${esc(pn)}</h2><span class="tot">Scelto <b class="num">${fmt(pageTot(p,"sel"))}</b></span></div>`;
+  secs.forEach(s => { h += renderSection(s); });
+  if (ui.form && ui.form.kind === "sez" && ui.form.page === p){
+    h += `<form class="inline" data-form="sez" style="margin-left:0"><label>Nome della nuova sezione<input id="sez-new" name="nome" class="f-wide" data-autofocus required></label><button class="btn primary">Crea</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
+  } else h += `<div><button class="btn ghost" data-act="add-sez" data-page="${p}">+ Nuova sezione</button></div>`;
+  return h;
+}
+
+function renderSection(s){
+  const items = S.voci.filter(v => v.sez === s.id);
+  let h = `<div class="section"><div class="sechead"><h3>${esc(s.nome)}</h3><span class="range num">Scelto <b>${fmt(secTot(s.id,"sel"))}</b> · da ${fmt(secTot(s.id,"min"))} a ${fmt(secTot(s.id,"max"))}</span></div>`;
+  items.forEach(v => { h += renderItem(v); });
+  if (ui.form && ui.form.kind === "voce" && ui.form.sez === s.id){
+    h += `<form class="inline" data-form="voce" data-sez="${s.id}" style="margin-left:0">
+      <label>Nuova voce<input id="voce-new" name="nome" class="f-wide" data-autofocus required placeholder="Es. Porte interne"></label>
+      <label>Primo prezzo (€)<input id="voce-new-p" name="prezzo" class="f-price" inputmode="decimal"></label>
+      <button class="btn primary">Aggiungi</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
+  } else {
+    h += `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-act="add-voce" data-sez="${s.id}">+ Nuova voce</button>${items.length ? "" : askOr("sez", s.id, null, `<button class="btn ghost danger" data-act="del-sez" data-id="${s.id}">Elimina sezione</button>`)}</div>`;
+  }
+  return h + `</div>`;
+}
+
+function askOr(kind, id, opt, fallback){
+  const c = ui.confirm;
+  if (c && c.kind === kind && c.id === id && (c.opt || null) === (opt || null))
+    return `<span class="ask">Eliminare? <button class="btn small danger" data-act="confirm-yes">Sì</button><button class="btn small" data-act="confirm-no">No</button></span>`;
+  return fallback;
+}
+
+function renderItem(v){
+  const opts = sortOpts(v);
+  const f = ui.form;
+  const renaming = f && f.kind === "rename" && f.id === v.id;
+  const name = renaming
+    ? `<form data-form="rename" data-id="${v.id}" style="display:flex;gap:6px;flex-wrap:wrap"><input id="rename-${v.id}" name="nome" value="${esc(v.nome)}" data-autofocus class="f-wide" style="border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--surface)"><button class="btn small primary">Salva</button><button type="button" class="btn small ghost" data-act="cancel-form">Annulla</button></form>`
+    : `<div class="iname">${esc(v.nome)}</div>`;
+  let body = "";
+  if (v.calc){
+    const lbl = v.calc.tipo === "sostitutiva"
+      ? `${v.calc.pct}% dell'importo del mutuo (${fmt(S.mutuo.importo)})`
+      : `<input id="pct-${v.id}" inputmode="decimal" value="${v.calc.pct}" data-ch="pct" data-id="${v.id}" aria-label="Percentuale"> % delle voci attive della sezione (${fmt(baseFor(v,"sel"))})`;
+    body = `<div class="calc">Calcolato in automatico: ${lbl}</div>`;
+  } else {
+    body = `<div class="opts" role="radiogroup" aria-label="Prezzi per ${esc(v.nome)}">` + opts.map(o => {
+      const editing = f && f.kind === "opt" && f.id === v.id && f.opt === o.id;
+      if (editing) return optForm(v, o);
+      const sel = (opts.find(x => x.id === v.scelta) || opts[0]).id === o.id;
+      const link = safeLink(o.link);
+      return `<label class="opt ${sel ? "sel" : ""}">
+        <input type="radio" name="sc-${v.id}" ${sel ? "checked" : ""} data-ch="scelta" data-id="${v.id}" data-opt="${o.id}">
+        <span class="p num">${fmt(o.prezzo)}</span>
+        <span class="n"><input class="onote" id="onote-${o.id}" aria-label="Commento per ${esc(fmt(o.prezzo))}" placeholder="Scrivi un commento…" value="${esc(o.nota)}" data-ch="onota" data-id="${v.id}" data-opt="${o.id}">${link ?`<a href="${esc(link)}" target="_blank" rel="noopener">link ↗</a>` : ""}</span>
+        <span class="tools">${askOr("opt", v.id, o.id, `<button class="btn ghost small" data-act="edit-opt" data-id="${v.id}" data-opt="${o.id}" aria-label="Modifica prezzo">Modifica</button><button class="btn ghost small" data-act="del-opt" data-id="${v.id}" data-opt="${o.id}" aria-label="Elimina prezzo">✕</button>`)}</span>
+      </label>`;
+    }).join("") + `</div>`;
+    if (f && f.kind === "opt" && f.id === v.id && !f.opt) body += optForm(v, null);
+  }
+  const tools = `<div class="addrow">
+    ${v.calc ? "" : `<button class="btn ghost small" data-act="add-opt" data-id="${v.id}">+ Aggiungi un prezzo</button>`}
+    <button class="btn ghost small" data-act="rename" data-id="${v.id}">Rinomina</button>
+    ${askOr("voce", v.id, null, `<button class="btn ghost small danger" data-act="del-voce" data-id="${v.id}">Elimina voce</button>`)}
+  </div>`;
+  const statoSel = `<select class="stato s-${v.stato}" id="stato-${v.id}" data-ch="stato" data-id="${v.id}" aria-label="Stato">${STATI.map(([k, l]) => `<option value="${k}" ${v.stato === k ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+  const rng = !v.calc && opts.length > 1 ? `<small class="num">da ${fmt(opts[0].prezzo)} a ${fmt(opts[opts.length-1].prezzo)}</small>` : `<small>${v.attiva ? "" : "non conteggiata"}</small>`;
+  return `<div class="item ${v.attiva ? "" : "off"}">
+    <div class="ihead">
+      <input type="checkbox" id="att-${v.id}" ${v.attiva ? "checked" : ""} data-ch="attiva" data-id="${v.id}" aria-label="Conta questa voce nel totale">
+      <div style="min-width:0">${name}<div class="imeta">${statoSel}</div></div>
+      <div class="chosen num">${fmt(val(v))}${rng}</div>
+    </div>${body}${tools}</div>`;
+}
+function optForm(v, o){
+  return `<form class="inline" data-form="opt" data-id="${v.id}" data-opt="${o ? o.id : ""}">
+    <label>Prezzo (€)<input id="of-p-${v.id}" name="prezzo" class="f-price" inputmode="decimal" required value="${o ? o.prezzo : ""}" data-autofocus></label>
+    <label>Commento<input id="of-n-${v.id}" name="nota" class="f-note" value="${esc(o ? o.nota : "")}" placeholder="Es. lo facciamo noi"></label>
+    <label>Link<input id="of-l-${v.id}" name="link" class="f-link" value="${esc(o ? o.link : "")}" placeholder="https://…"></label>
+    <button class="btn primary">${o ? "Salva" : "Aggiungi"}</button><button type="button" class="btn ghost" data-act="cancel-form">Annulla</button></form>`;
+}
+
+/* ---------- import / export ---------- */
+function renderImport(){
+  const im = ui.importing;
+  if (im.error) return `<div class="importbox"><h3>Import non riuscito</h3><p>${esc(im.error)}</p><div class="actions"><button class="btn" data-act="import-cancel">Chiudi</button></div></div>`;
+  const sheetSel = im.sheets ? `<label class="field">Foglio da importare<select id="imp-sheet" data-ch="imp-sheet" style="border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface)">${im.sheets.map(n => `<option ${n === im.sheet ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label>` : "";
+  const prev = im.data ? `<p class="sub">Trovate ${im.data.voci.length} voci, ${im.data.soldi.length} fonti di soldi, prezzo casa ${fmt(im.data.casa.prezzo)}, mutuo ${fmt(im.data.mutuo.importo)}.</p>` : "";
+  return `<div class="importbox"><h3>Importa “${esc(im.name)}”</h3>${sheetSel}${prev}
+    <p>${S ? "I dati attuali verranno sostituiti. Se vuoi tenerli, fai prima “Esporta”." : ""}</p>
+    <div class="actions"><button class="btn primary" data-act="import-ok" ${im.data ? "" : "disabled"}>${S ? "Sostituisci i dati" : "Importa"}</button><button class="btn" data-act="import-cancel">Annulla</button></div></div>`;
+}
+async function onFile(file){
+  const name = file.name;
+  try {
+    if (/\.json$/i.test(name)){
+      const data = normalize(JSON.parse(await file.text()));
+      ui.importing = {name, data};
+    } else {
+      if (!window.XLSX) throw new Error("Il lettore Excel non si è caricato. Ricarica la pagina e riprova.");
+      const wb = XLSX.read(await file.arrayBuffer(), {type:"array"});
+      const sheet = wb.SheetNames.find(n => n.trim() === "Via Damiani") || wb.SheetNames[0];
+      ui.importing = {name, wb, sheets: wb.SheetNames, sheet, data: fromSheet(wb.Sheets[sheet])};
+    }
+  } catch (e){ ui.importing = {name, error: e.message || "File non leggibile."}; }
+  render(); window.scrollTo({top:0});
+}
+function fromSheet(ws){
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+  const st = blankState(); st.sezioni = [];
+  const map = {1:"notaio-agenzia",2:"notaio-agenzia",3:"mutuo",4:"altro",5:"arredo",6:"lavori",7:"arredo"};
+  let sez = null, pctImpr = 15, pctSost = 0.25, anticipo = null;
+  const num = x => typeof x === "number" ? x : (typeof x === "string" && x.trim() && !isNaN(parseNum(x)) ? parseNum(x) : null);
+  rows.forEach(r => {
+    const F = typeof r[5] === "string" ? r[5].toLowerCase() : "";
+    const G = num(r[6]);
+    if (F && G != null){
+      if (F.includes("prezzo di acquisto")) st.casa.prezzo = G;
+      else if (F.includes("capitale da finanziare")) st.mutuo.importo = G;
+      else if (F.includes("anticipo")) anticipo = G;
+      else if (F.includes("imposta sostitutiva")) pctSost = G < 1 ? G * 100 : G;
+      else if (F.includes("imprevisti")) pctImpr = G < 1 ? G * 100 : G;
+      else if (F.includes("mamma") || F.includes("io ho") || F.includes("soldi") || F.includes("risparmi"))
+        st.soldi.push({id:uid(), chi: r[5].trim(), importo: G, nota:""});
+    }
+    const J = r[9]; if (typeof J === "string" && J.trim()) st.promemoria.push({id:uid(), testo:J.trim()});
+  });
+  if (!st.mutuo.importo && anticipo != null && st.casa.prezzo) st.mutuo.importo = st.casa.prezzo - anticipo;
+  rows.forEach((r, i) => {
+    const A = typeof r[0] === "string" ? r[0].trim() : "";
+    const hm = A.match(/^(\d+)\s*·\s*(.+)$/);
+    if (hm){ sez = {id:"s" + hm[1] + "-" + uid().slice(0,4), nome: cap(hm[2].trim()), pagina: map[hm[1]] || "altro"}; st.sezioni.push(sez); return; }
+    if (!sez || /^totale/i.test(A)) return;
+    const B = typeof r[1] === "string" ? r[1].trim() : "";
+    const C = num(r[2]), D = num(r[3]);
+    if (!B || (C == null && D == null)) return;
+    let nome = B.replace(/🔗/g, "").replace(/\s+\(.*?\)\s*$/, m => /calcolat|%|valore|capitale/i.test(m) ? "" : m).replace(/\s{2,}/g, " ").trim();
+    const v = {id:uid(), sez: sez.id, nome, attiva: A === "✓", stato:"da-decidere", opzioni:[], scelta:null};
+    if (/sostitutiva/i.test(B)) v.calc = {tipo:"sostitutiva", pct: pctSost};
+    else if (/imprevisti/i.test(B)) v.calc = {tipo:"percentuale", pct: pctImpr};
+    else {
+      const F = typeof r[5] === "string" && i > 24 && r[6] == null ? r[5].trim() : "";
+      const vals = [C, D].filter(x => x != null);
+      [...new Set(vals)].forEach(p => v.opzioni.push({id:uid(), prezzo:p, nota: F, link:""}));
+      v.opzioni.sort((a, b) => a.prezzo - b.prezzo); v.scelta = v.opzioni[0].id;
+    }
+    st.voci.push(v);
+  });
+  if (!st.sezioni.length) throw new Error("Non ho trovato sezioni del tipo “1 · AGENZIA…” nel foglio.");
+  return st;
+}
+const cap = s => s.charAt(0) + s.slice(1).toLowerCase();
+async function doExport(){
+  const txt = JSON.stringify(S, null, 2);
+  const d = new Date(); const fn = `via-damiani-budget-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.json`;
+  let dl = null; try { dl = await window.claude?.use?.("downloads"); } catch {}
+  if (dl){
+    try { await dl.save({filename: fn, data: txt}); setStatus("Backup salvato"); return; }
+    catch (e){ if (e && e.code === "declined") return; }
+  }
+  ui.exportText = txt; render(); window.scrollTo({top:0});
+}
+
+/* ---------- eventi ---------- */
+const findV = id => S.voci.find(v => v.id === id);
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-act]"); if (!t) return;
+  const a = t.dataset.act, id = t.dataset.id, opt = t.dataset.opt;
+  if (t.tagName === "INPUT") return;
+  switch (a){
+    case "import": $("#file").value = ""; $("#file").click(); return;
+    case "export": if (S) doExport(); return;
+    case "export-close": ui.exportText = null; break;
+    case "copy-json": { const ta = $("#exporttxt"); try { await navigator.clipboard.writeText(ta.value); setStatus("Copiato"); } catch { ta.select(); } return; }
+    case "import-cancel": ui.importing = null; break;
+    case "import-ok": { if (!ui.importing || !ui.importing.data) return; S = ui.importing.data; ui.importing = null; ui.form = null; location.hash = "riepilogo"; commit(); return; }
+    case "start-blank": S = blankState(); commit(); return;
+    case "cancel-form": ui.form = null; break;
+    case "add-opt": ui.form = {kind:"opt", id, opt:null}; break;
+    case "edit-opt": ui.form = {kind:"opt", id, opt}; break;
+    case "rename": ui.form = {kind:"rename", id}; break;
+    case "comment": ui.form = {kind:"comm", id}; break;
+    case "add-voce": ui.form = {kind:"voce", sez: t.dataset.sez}; break;
+    case "add-sez": ui.form = {kind:"sez", page: t.dataset.page}; break;
+    case "del-opt": ui.confirm = {kind:"opt", id, opt}; break;
+    case "del-voce": ui.confirm = {kind:"voce", id}; break;
+    case "del-sez": ui.confirm = {kind:"sez", id}; break;
+    case "del-soldo": ui.confirm = {kind:"soldo", id}; break;
+    case "del-memo": ui.confirm = {kind:"memo", id}; break;
+    case "confirm-no": ui.confirm = null; break;
+    case "confirm-yes": {
+      const c = ui.confirm; ui.confirm = null; if (!c) break;
+      if (c.kind === "opt"){ const v = findV(c.id); v.opzioni = v.opzioni.filter(o => o.id !== c.opt); if (v.scelta === c.opt) v.scelta = sortOpts(v)[0]?.id || null; }
+      if (c.kind === "voce") S.voci = S.voci.filter(v => v.id !== c.id);
+      if (c.kind === "sez") S.sezioni = S.sezioni.filter(s => s.id !== c.id);
+      if (c.kind === "soldo") S.soldi = S.soldi.filter(s => s.id !== c.id);
+      if (c.kind === "memo") S.promemoria = S.promemoria.filter(s => s.id !== c.id);
+      commit(); return;
+    }
+    case "add-soldo": S.soldi.push({id:uid(), chi:"", importo:0, nota:""}); commit(); setTimeout(() => { const ins = document.querySelectorAll(".money input"); if (ins.length) ins[ins.length - 3].focus(); }); return;
+    case "all-min": case "all-max": S.voci.forEach(v => { const o = sortOpts(v); if (o.length) v.scelta = (a === "all-min" ? o[0] : o[o.length - 1]).id; }); commit(); return;
+    default: return;
+  }
+  render();
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "file"){ if (t.files[0]) onFile(t.files[0]); return; }
+  const k = t.dataset.ch; if (!k || !S && k !== "imp-sheet") return;
+  const v = t.dataset.id ? findV(t.dataset.id) : null;
+  switch (k){
+    case "imp-sheet": { const im = ui.importing; im.sheet = t.value; try { im.data = fromSheet(im.wb.Sheets[t.value]); im.error = null; } catch (err){ im.data = null; im.error = err.message; } render(); return; }
+    case "attiva": v.attiva = t.checked; break;
+    case "scelta": v.scelta = t.dataset.opt; break;
+    case "onota": { const o = v.opzioni.find(x => x.id === t.dataset.opt); if (o) o.nota = t.value.trim(); break; }
+    case "stato": v.stato = t.value; break;
+    case "pct": { const n = parseNum(t.value); if (!isNaN(n)) v.calc.pct = n; break; }
+    case "casa-prezzo": { const n = parseNum(t.value); S.casa.prezzo = isNaN(n) ? 0 : n; break; }
+    case "mutuo": { const n = parseNum(t.value); S.mutuo[t.dataset.f] = isNaN(n) ? 0 : n; break; }
+    case "soldo": { const s = S.soldi.find(x => x.id === t.dataset.id); if (!s) return; if (t.dataset.f === "importo"){ const n = parseNum(t.value); s.importo = isNaN(n) ? 0 : n; } else s[t.dataset.f] = t.value; break; }
+    default: return;
+  }
+  commit();
+});
+document.addEventListener("submit", e => {
+  const f = e.target; if (!f.dataset.form) return;
+  e.preventDefault();
+  const fd = new FormData(f), kind = f.dataset.form;
+  if (kind === "opt"){
+    const p = parseNum(fd.get("prezzo")); if (isNaN(p)){ f.querySelector("[name=prezzo]").setCustomValidity("Scrivi un numero, es. 1500 o 1.500,50"); f.reportValidity(); f.querySelector("[name=prezzo]").setCustomValidity(""); return; }
+    const v = findV(f.dataset.id); const data = {prezzo:p, nota:String(fd.get("nota") || "").trim(), link:String(fd.get("link") || "").trim()};
+    if (f.dataset.opt){ Object.assign(v.opzioni.find(o => o.id === f.dataset.opt), data); }
+    else { const o = {id:uid(), ...data}; v.opzioni.push(o); if (v.opzioni.length === 1) v.scelta = o.id; }
+    v.opzioni.sort((a, b) => a.prezzo - b.prezzo);
+  } else if (kind === "comm"){
+    findV(f.dataset.id).commento = String(fd.get("commento") || "").trim();
+  } else if (kind === "rename"){
+    const n = String(fd.get("nome") || "").trim(); if (n) findV(f.dataset.id).nome = n;
+  } else if (kind === "voce"){
+    const n = String(fd.get("nome") || "").trim(); if (!n) return;
+    const p = parseNum(fd.get("prezzo"));
+    const v = {id:uid(), sez:f.dataset.sez, nome:n, attiva:true, stato:"da-decidere", opzioni:[], scelta:null};
+    if (!isNaN(p)){ const o = {id:uid(), prezzo:p, nota:"", link:""}; v.opzioni.push(o); v.scelta = o.id; }
+    S.voci.push(v);
+  } else if (kind === "sez"){
+    const n = String(fd.get("nome") || "").trim(); if (!n) return;
+    S.sezioni.push({id:"s-" + uid(), nome:n, pagina: ui.form.page});
+  } else if (kind === "memo"){
+    const n = String(fd.get("testo") || "").trim(); if (!n) return;
+    S.promemoria.push({id:uid(), testo:n});
+  }
+  ui.form = null; commit();
+});
+function route(){
+  const h = location.hash.replace("#", "");
+  page = PAGES.some(p => p.id === h) ? h : "riepilogo";
+  ui.form = null; ui.confirm = null; render();
+}
+window.addEventListener("hashchange", () => { route(); window.scrollTo({top:0}); });
+
+/* ---------- avvio ---------- */
+async function boot(){
+  route();
+  let db = null;
+  try { db = await (window.claude?.use ? window.claude.use("db") : null); } catch {}
+  if (db){
+    store = {kind:"db", db};
+    try {
+      const snap = await Promise.race([db.doc(DOC).get(), new Promise((_, rej) => setTimeout(() => rej({code:"timeout"}), 10000))]);
+      S = snap.exists ? normalize(snap.data()) : null;
+      setStatus(S ? "Salvato" : "Nessun dato salvato");
+    } catch (e){
+      setStatus(e && e.code === "timeout" ? "I dati non rispondono ancora: ricarica tra poco" : "Dati non disponibili");
+    }
+  } else {
+    store = {kind:"local"};
+    try { const raw = localStorage.getItem(LS); S = raw ? normalize(JSON.parse(raw)) : null; } catch {}
+    setStatus("Salvataggio solo su questo dispositivo");
+  }
+  render();
+}
+boot();
+})();
+</script>
